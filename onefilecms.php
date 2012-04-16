@@ -9,9 +9,13 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 // CONFIGURATION INFO
 $version          = "1.1.7"; // ONEFILECMS_BEGIN
 $ONESCRIPT        = $_SERVER["SCRIPT_NAME"];
-$config_username  = "username";
-$config_password  = "password";
-//$config_hint     = ""; //Not currently used
+
+// Array of users. Format: array("username","md5_password")
+	$config['users'] = array(
+									array("username",md5("password")),
+									array("admin",md5("password"))
+										);
+
 $config_title     = "OneFileCMS";
 $config_footer    = date("Y")." <a href='http://onefilecms.com/'>OneFileCMS</a>.";
 $config_disabled  = "bmp,ico,gif,jpg,png,psd,zip,exe,swf";
@@ -19,9 +23,6 @@ $config_excluded  = ""; //files to exclude from directory listings
 $config_LOCAL     = "_onefilecms/";  //local directory for icons, .css, .js, etc...
 $config_csslocal  = $config_LOCAL."onefilecms.css"; //Relative to site URL root. Don't use leading '/'.
 $config_csshosted = "http://self-evident.github.com/OneFileCMS/onefilecms.css";
-$config_JQlocal   = $config_LOCAL."jquery.min.js";
-$config_JQhosted  = "http://code.jquery.com/jquery-1.7.2.min.js";
-//$config_JQhosted  = "http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js";
 
 //Allows OneFileCMS.php to be started from any dir on the site.
 chdir($_SERVER["DOCUMENT_ROOT"]);
@@ -33,8 +34,8 @@ function Cancel_Submit_Buttons($button_label) {
 	global $ONESCRIPT, $varvar;
 
 	// [Cancel] returns to either the current/path, or current/path/file
-	if (isset($_GET["i"])){
-		$ipath = '?i='.rtrim($_GET["i"],"/");
+	if (isset($params['path'])){
+		$ipath = '?i='.rtrim($params['path'],"/");
 		
 	}else if   ( isset($_GET["c"]) ) {
 		$ipath = '?f='.$_GET["c"];
@@ -55,46 +56,67 @@ function Cancel_Submit_Buttons($button_label) {
 	</p>
 <?php }
 
+// check credentials, returns false if not okay
+function check_credentials($hash, $sessionId=null){
+	global $config;
+	if(!is_null($sessionId) && $sessionId != session_id()) return false;
+	foreach ($config['users'] as $user){
+		if (md5($user[0].$user[1]) == $hash) return true;
+	}
+	return false;
+}
+
 
 
 //******************************************************************************
-session_start();
-global $page; $page = "index";
+	session_start();
 
-if (isset($_POST["onefilecms_username"])) { $_SESSION['onefilecms_username'] = $_POST["onefilecms_username"]; }
-if (isset($_POST["onefilecms_password"])) { $_SESSION['onefilecms_password'] = $_POST["onefilecms_password"]; }
-if (($_SESSION['onefilecms_username'] == $config_username) and ($_SESSION['onefilecms_password'] == $config_password || md5($_SESSION['onefilecms_password']) == $config_password)) {
-	$_SESSION['onefilecms_valid'] = "1";
-} else {
-	$_SESSION['onefilecms_valid'] = "0";
-	$page = "login";
-}
+	$page = "index";
+	$pagetitle = "/";
 
-global $pagetitle; $pagetitle = "/";
-if ((isset($_GET["i"])) && ($_GET["i"] !== "")) { $pagetitle = "/".$_GET["i"]."/"; }
-if (isset($_GET["p"])) {
-	// redirect on invalid page attempts
-	$page = $_GET["p"];
-	if (!in_array(strtolower($_GET["p"]), array(
-		"copy","delete","error","deletefolder","edit","folder","index","login","logout","new","other","rename","renamefolder","upload"	)))
-	{
-		header("Location: ".$ONESCRIPT);
-		$page = "index";
+// entitize get params
+	foreach ($_GET as $name => $value) {
+		$_GET[$name] = htmlentities($value);
 	}
-}
-if ( ($page == "login") and ($_SESSION['onefilecms_valid']) ) {$page = "index"; header("Location: ".$ONESCRIPT);};
 
-if ($_GET["p"] == "other") {$pagetitle = "Other"; }
-if ($_GET["p"] == "login") {$pagetitle = "Log In"; }
-if ($_GET["p"] == "logout") {$pagetitle = "Log Out"; $_SESSION['onefilecms_valid'] = "0"; session_destroy(); }
-if ($_GET["i"] == "") { unset($_GET["i"]); }
+// get user inputs
+	$params['mode'] = isset($_GET['p'])?$_GET['p']:false;
+	$params['path'] = isset($_GET['i'])?$_GET['i']:'';
 
+// check for login post
+	if (isset($_POST["login"])){
+	// check posted password and username
+		if(isset($_POST["onefilecms_username"],$_POST["onefilecms_password"]) && check_credentials(md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"])))) {
+			$_SESSION['onefilecms_hash'] = md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"]));
+		} else {
+			$message = 'Invalid username or password';
+		}
+	}
 
+// check if we are loged in, if not set page to login
+	if(!isset($_SESSION['onefilecms_hash']) || !check_credentials($_SESSION['onefilecms_hash'])){
+		$_SESSION['onefilecms_hash'] = '';
+		$page = "login";
+		$pagetitle = "Log In";
+	}
 
-// entitize get params *********************************************************
-foreach ($_GET as $name => $value) {
-	$_GET[$name] = htmlentities($value);
-}
+	if (!empty($params['path'])) $pagetitle = "/".$params['path']."/";
+
+	if ($params['mode']) {
+		// redirect on invalid page attempts
+		$page = $params['mode'];
+		if (!in_array(strtolower($params['mode']), array("copy","delete","error","deletefolder","edit","folder","index","login","logout","new","other","rename","renamefolder","upload"))){
+			header("Location: ".$ONESCRIPT);
+		}
+		
+		if ($params['mode'] == "other") $pagetitle = "Other";
+		if ($params['mode'] == "logout") {
+			$pagetitle = "Log Out";
+			$_SESSION['onefilecms_hash'] = '';
+			session_destroy();
+		}
+	}
+
 
 
 
@@ -103,7 +125,7 @@ if (isset($_GET["c"])) {
 	$filename = $_GET["c"]; $pagetitle = "Copy &ldquo;".$filename."&rdquo;";  $page = "copy";
 }
 
-if (isset($_POST["copy_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if (isset($_POST["copy_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$old_filename = $_POST["old_filename"];
 	$filename = $_POST["copy_filename"];
 	copy($old_filename, $filename);
@@ -118,7 +140,7 @@ if (isset($_GET["d"])) {
 	$pagetitle = "Delete &ldquo;".$filename."&rdquo;";
 	$page = "delete";
 }
-if (isset($_POST["delete_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if (isset($_POST["delete_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_POST["delete_filename"];
 	unlink($filename);
 	$message = '<b>'.$filename."</b> successfully deleted.";
@@ -127,10 +149,10 @@ if (isset($_POST["delete_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $
 
 
 // DELETE FOLDER ***************************************************************
-if ($_GET["p"] == "deletefolder") {
-	$pagetitle = "Delete Folder &ldquo;".$_GET["i"]."&rdquo;";
+if ($params['mode'] == "deletefolder") {
+	$pagetitle = "Delete Folder &ldquo;".$params['path']."&rdquo;";
 }
-if (isset($_POST["delete_foldername"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if (isset($_POST["delete_foldername"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$foldername = $_POST["delete_foldername"];
 	if (@rmdir($foldername)) {
 		$message = '<b>'.$foldername."</b> successfully deleted.";
@@ -142,7 +164,7 @@ if (isset($_POST["delete_foldername"]) && $_SESSION['onefilecms_valid'] = "1" &&
 
 
 // EDIT ************************************************************************
-if (isset($_POST["filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if (isset($_POST["filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_POST["filename"];
 	$content = stripslashes($_POST["content"]);
 	$fp = @fopen($filename, "w");
@@ -173,8 +195,8 @@ if (isset($_GET["f"])) {
 
 
 // NEW FILE ********************************************************************
-if ($_GET["p"] == "new") {$pagetitle = "New File"; }
-if (isset($_POST["new_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if ($params['mode'] == "new") {$pagetitle = "New File"; }
+if (isset($_POST["new_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_POST["new_filename"];
 	if (file_exists($filename)) {
 		$message = '<b>'.$filename."</b> not created. A file with that name already exists.";
@@ -188,8 +210,8 @@ if (isset($_POST["new_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_PO
 
 
 // NEW FOLDER ******************************************************************
-if ($_GET["p"] == "folder") {$pagetitle = "New Folder"; }
-if (isset($_POST["new_folder"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if ($params['mode'] == "folder") {$pagetitle = "New Folder"; }
+if (isset($_POST["new_folder"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$foldername = $_POST["new_folder"];
 	if (!is_dir($foldername)) {
 		mkdir($foldername);
@@ -207,7 +229,7 @@ if (isset($_GET["r"])) {
 	$pagetitle = "Rename &ldquo;".$filename."&rdquo;";
 	$page = "rename";
 }
-if (isset($_POST["rename_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if (isset($_POST["rename_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$old_filename = $_POST["old_filename"];
 	$filename = $_POST["rename_filename"];
 	rename($old_filename, $filename);
@@ -217,8 +239,8 @@ if (isset($_POST["rename_filename"]) && $_SESSION['onefilecms_valid'] = "1" && $
 
 
 // RENAME FOLDER ***************************************************************
-if ($_GET["p"] == "renamefolder") {$pagetitle = "Rename Folder &ldquo;".$_GET["i"]."&rdquo;"; }
-if (isset($_POST["rename_foldername"]) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if ($params['mode'] == "renamefolder") {$pagetitle = "Rename Folder &ldquo;".$params['path']."&rdquo;"; }
+if (isset($_POST["rename_foldername"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$old_foldername = $_POST["old_foldername"];
 	$foldername = $_POST["rename_foldername"];
 	if (rename($old_foldername, $foldername)) {
@@ -231,8 +253,8 @@ if (isset($_POST["rename_foldername"]) && $_SESSION['onefilecms_valid'] = "1" &&
 
 
 // UPLOAD FILE *****************************************************************
-if ($_GET["p"] == "upload") {$pagetitle = "Upload File"; }
-if (isset($_FILES['upload_filename']['name']) && $_SESSION['onefilecms_valid'] = "1" && $_POST["sessionid"] == session_id()) {
+if ($params['mode'] == "upload") {$pagetitle = "Upload File"; }
+if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_FILES['upload_filename']['name'];
 	$destination = $_POST["upload_destination"];
 	if(move_uploaded_file($_FILES['upload_filename']['tmp_name'],
@@ -273,7 +295,7 @@ if (!file_exists($config_csslocal)) { $STYLE_SHEET = $config_csshosted; }
 <div class="header">
 	<?php echo '<a href="', $ONESCRIPT, '" id="logo" >', $config_title; ?></a>
 
-	<?php if ((isset($_SESSION['onefilecms_valid'])) && ($_SESSION['onefilecms_valid'] == "1")) { ?>
+	<?php if (check_credentials($_SESSION['onefilecms_hash'])) { ?>
 		<div class="nav">
 			<a href="/">Visit Site</a> | 
 			<a href="<?php echo $ONESCRIPT; ?>">Index</a> | 
@@ -333,13 +355,13 @@ if ($page == "delete") {
 
 // DELETE FOLDER ***************************************************************
 if ($page == "deletefolder") {
-	$varvar = "?i=".substr($_GET["i"],0,strrpos(substr_replace($_GET["i"],"",-1),"/")); ?>
-	<h2>Delete Folder &ldquo;<?php echo $_GET["i"]; ?>&rdquo;</h2>
+	$varvar = "?i=".substr($params['path'],0,strrpos(substr_replace($params['path'],"",-1),"/")); ?>
+	<h2>Delete Folder &ldquo;<?php echo $params['path']; ?>&rdquo;</h2>
 	<p>Folders have to be empty before they can be deleted.</p>
 	<form method="post" action="<?php echo $ONESCRIPT.$varvar; ?>">
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
 		<p>
-			<input type="hidden" name="delete_foldername" value="<?php echo $_GET["i"]; ?>" />
+			<input type="hidden" name="delete_foldername" value="<?php echo $params['path']; ?>" />
 			<?php Cancel_Submit_Buttons("DELETE"); ?>
 
 		</p>
@@ -358,8 +380,10 @@ if ($page == "edit") { ?>
 	<form method="post" action="<?php echo $ONESCRIPT.'?f='.$filename; ?>">
 	<input type="button" class="button close" name="close" value="Close" onclick="parent.location='<?php echo $ONESCRIPT.'?i='.substr($_GET["f"],0,strrpos($_GET["f"],"/")); ?>'" />
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<?php $lfile = strtolower($filename);
-		if (strpos($config_disabled,end(explode(".", $lfile)))) { ?>
+		<?php
+		$lfile = strtolower($filename);
+		$lfile = explode(".", $lfile);
+		if (strpos($config_disabled,end($lfile))) { ?>
 			<p>
 				<textarea name="content" class="textinput disabled" cols="70" rows="25" disabled="disabled">Disabled.</textarea>
 			</p>
@@ -391,25 +415,26 @@ if ($page == "edit") { ?>
 // INDEX ***********************************************************************
 if ($page == "index") {
 	$varvar = "";
-	if (isset($_GET["i"])) { $varvar = $_GET["i"]."/"; }
+	if (!empty($params['path'])) { $varvar = $params['path']."/"; }
 
  	// Current path. ie: docroot/current/path/ 
 	// Each level is a link to that level.
 	echo '<h2>';
 		$full_path = basename(getcwd());
-		if (isset($_GET["i"])) { $full_path = basename(getcwd()).'/'.$_GET["i"]; }
+		if (!empty($params['path'])) { $full_path = basename(getcwd()).'/'.$params['path']; }
 
 		$path_levels = explode("/",$full_path);
 		$levels = count($path_levels); //If levels=3, indexes = 0, 1, 2  etc...
 
 		//docroot folder of site
-		if ($_GET["i"] == "") { 
+		if (empty($params['path'])) { 
 			echo $path_levels[0].' /'; // if at root, no need for link.
 		} else {
 			echo '<a href="'.$ONESCRIPT.'" class="path"> '.$path_levels[0].' </a>/';
 		}
 
 		//Remainder of current/path
+		$current_path = '';
 		for ($x=1; $x < $levels; $x++) {
 			if ($x !== 1){ $current_path .= '/'; }
 			$current_path = $current_path.$path_levels[$x];
@@ -432,7 +457,7 @@ if ($page == "index") {
 
 	<!--============= List files ==============-->
 	<div style="clear:both;"></div>
-	<ul class="index <?php echo $_COOKIE['index_display']; ?>">
+	<ul class="index">
 		<?php $files = glob($varvar."{,.}*", GLOB_BRACE); sort($files);
 		foreach ($files as $file) {
 			$excludeme = 0;
@@ -501,7 +526,7 @@ if ($page == "login") { ?>
 			<input type="password" name="onefilecms_password" id="onefilecms_password" class="login_input" />
 		</p>
 			
-		<input type="submit" class="button" value="Enter" />
+		<input class="button" type="submit" name="login" value="Login" />
 	</form>
 <?php };
 
@@ -518,7 +543,7 @@ if ($page == "logout") { ?>
 // NEW FILE ********************************************************************
 if ($page == "new") {
 	$varvar = "";
-	if (isset($_GET["i"])) { $varvar = "?i=".$_GET["i"]; }?>
+	if (!empty($params['path'])) { $varvar = "?i=".$params['path']; }?>
 		<h2>New File</h2>
 		<p>Existing files with the same name will not be overwritten.</p>
 		<form method="post" id="new" action="<?php echo
@@ -526,7 +551,7 @@ if ($page == "new") {
 			<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
 			<p>
 				<label for="new_filename">New filename: </label>
-				<input type="text" name="new_filename" id="new_filename" class="textinput" value="<?php echo $_GET["i"]; ?>" />
+				<input type="text" name="new_filename" id="new_filename" class="textinput" value="<?php echo $params['path']; ?>" />
 			</p>
 			<p>	<?php Cancel_Submit_Buttons("Create"); ?> </p>
 		</form>
@@ -537,14 +562,14 @@ if ($page == "new") {
 // NEW FOLDER ******************************************************************
 if ($page == "folder") {
 	$varvar = "";
-	if (isset($_GET["i"])) { $varvar = "?i=".$_GET["i"]; }?>
+	if (!empty($params['path'])) { $varvar = "?i=".$params['path']; }?>
 	<h2>New Folder</h2>
 	<p>Existing folders with the same name will not be overwritten.</p>
 	<form method="post" action="<?php echo $ONESCRIPT.substr_replace($varvar,"",-1); ?>">
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
 		<p>
 			<label for="new_folder">Folder name: </label>
-			<input type="text" name="new_folder" id="new_folder" class="textinput" value="<?php echo $_GET["i"]; ?>" />
+			<input type="text" name="new_folder" id="new_folder" class="textinput" value="<?php echo $params['path']; ?>" />
 		</p>
 		<p>	<?php Cancel_Submit_Buttons("Create"); ?> </p>
 	</form>
@@ -600,17 +625,17 @@ if ($page == "rename") {
 
 // RENAME FOLDER ***************************************************************
 if ($page == "renamefolder") {
-	$varvar = "?i=".substr($_GET["i"],0,strrpos(substr_replace($_GET["i"],"",-1),"/")); ?>
-	<h2>Rename Folder &ldquo;<?php echo $_GET["i"]; ?>&rdquo;</h2>
+	$varvar = "?i=".substr($params['path'],0,strrpos(substr_replace($params['path'],"",-1),"/")); ?>
+	<h2>Rename Folder &ldquo;<?php echo $params['path']; ?>&rdquo;</h2>
 	<form method="post" action="<?php echo $ONESCRIPT.$varvar; ?>">
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
 		<p>
-			<label>Old name:</label><input type="hidden" name="old_foldername" value="<?php echo $_GET["i"]; ?>" />
-			<input type="text" name="dummy" value="<?php echo $_GET["i"]; ?>" class="textinput" disabled="disabled" />
+			<label>Old name:</label><input type="hidden" name="old_foldername" value="<?php echo $params['path']; ?>" />
+			<input type="text" name="dummy" value="<?php echo $params['path']; ?>" class="textinput" disabled="disabled" />
 		</p>
 		<p>
 			<label for="rename_foldername">New name:</label>
-			<input type="text" name="rename_foldername" id="rename_foldername" class="textinput" value="<?php echo $_GET["i"]; ?>" />
+			<input type="text" name="rename_foldername" id="rename_foldername" class="textinput" value="<?php echo $params['path']; ?>" />
 		</p>
 		<p><?php Cancel_Submit_Buttons("Rename"); ?></p>
 	</form>
@@ -620,7 +645,7 @@ if ($page == "renamefolder") {
 
 // UPLOAD FILE *****************************************************************
 if ($page == "upload") {
-	$varvar = ""; if (isset($_GET["i"])) { $varvar = "?i=".$_GET["i"]; } ?>
+	$varvar = ""; if (!empty($params['path'])) { $varvar = "?i=".$params['path']; } ?>
 	<h2>Upload</h2>
 	<form enctype="multipart/form-data" action="<?php echo
 	$ONESCRIPT.substr_replace($varvar,"",-1); ?>" method="post">
@@ -628,7 +653,7 @@ if ($page == "upload") {
 		<input type="hidden" name="MAX_FILE_SIZE" value="100000" />
 		<p>
 			<label for="upload_destination">Destination:</label>
-			<input type="text" name="upload_destination" value="<?php echo $_GET["i"]; ?>" class="textinput" />
+			<input type="text" name="upload_destination" value="<?php echo $params['path']; ?>" class="textinput" />
 		</p>
 		<p>
 			<label for="upload_filename">File:</label>
@@ -645,45 +670,6 @@ if ($page == "upload") {
 </div>
 
 </div>
-
-
-
-<?php //************************************************************************
-$JQUERY = '/'.$config_JQlocal;
-//Check for local copy of jquery
-if (!file_exists($config_JQlocal)) { $JQUERY = $config_JQhosted; }
-?>
-
-<script src="<?php echo $JQUERY; ?>"></script>
-<script type="text/javascript">
-	$.fn.ready(function(){
-	
-		var $message = $("#message"),
-		    $save_file = $("#save_file");
-		//This line fades out the message after specified time (3000 = 3 seconds)
-		//if ( $message.length > 0 ) { $message.animate({opacity: 1.0}, 3000).fadeOut(); };
-		
-		$(".button:visible:enabled:first").focus();
-		$(".textinput:visible:enabled:first").focus();
-		
-		$(".page_edit .textinput").bind("change keyup", function (e) {
-			key = e.which+" ";
-			badkeys = "224 16 17 18 37 38 39 40 ";
-			if ((badkeys.indexOf(key) == "-1") && ($save_file.val() !== "Save!")) {
-				$save_file.val("Save!");
-				document.title = document.title + " *";
-				$(".page_edit h2").append(" *");
-			}
-		});
-		
-		$(".page_edit form").submit(function() { $save_file.val("Save"); });
-		window.onbeforeunload = function () {
-			if ($save_file.val() == "Save!") {
-				return "Any changes you've made will be lost!";
-			}
-		};
-	});
-</script>
 
 </body>
 </html>
