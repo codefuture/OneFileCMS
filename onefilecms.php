@@ -17,7 +17,7 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 
 	$config['title']	= "OneFileCMS";
 	$config['footer']	= date("Y")." <a href='http://onefilecms.com/'>OneFileCMS</a>.";
-	$config['disabled']	= array('php',"bmp","ico","gif","jpg","png","psd","zip","exe","swf"); // file types you can't edit
+	$config['disabled']	= array("bmp","ico","gif","jpg","png","psd","zip","exe","swf"); // file types you can't edit
 	$config['excluded']	= array(); // files to exclude from directory listings (ie. array("passwords.txt","imageOFme.jpg");)
 	$config['cssfile']	= "onefilecms.css"; // the css file name
 
@@ -40,44 +40,7 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 	$config['disabled'] = array_flip($config['disabled']);
 	$config['excluded'] = array_flip($config['excluded']);
 
-// functions
-function Cancel_Submit_Buttons($button_label) { 
-	global $varvar,$config;
-
-	// [Cancel] returns to either the current/path, or current/path/file
-	if (isset($params['path'])){
-		$ipath = '?i='.rtrim($params['path'],"/");
-		
-	}else if   ( isset($_GET["c"]) ) {
-		$ipath = '?f='.$_GET["c"];
-		
-	}else if   ( isset($_GET["d"]) ) {
-		$ipath = '?f='.$_GET["d"];
-
-	}else if   ( isset($_GET["r"]) ) {
-		$ipath = '?f='.$_GET["r"];
-		
-	}else{
-		$ipath = rtrim($varvar,"/");
-	}//end if
-?>
-	<p>
-		<input type="button" class="button" name="cancel" value="Cancel" onclick="parent.location='<?php echo $config['address'].$ipath; ?>'"/>
-		<input type="submit" class="button" value="<?php echo $button_label;?>" id="action" style="margin-left: 2.5em;">
-	</p>
-<?php }
-
-// check credentials, returns false if not okay
-function check_credentials($hash, $sessionId=null){
-	global $config;
-	if(!is_null($sessionId) && $sessionId != session_id()) return false;
-	foreach ($config['users'] as $user){
-		if (md5($user[0].$user[1]) == $hash) return true;
-	}
-	return false;
-}
-
-
+// page var's
 	$page = "index";
 	$pagetitle = "/";
 
@@ -305,7 +268,9 @@ if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['on
 			<?php endif; ?>
 		</div>
 		<?php echo (isset($message)?'<div id="message"><p>'.$message.'</p></div>':'');?>
-<?
+<?php
+
+
 // COPY FILE *******************************************************************
 if ($page == "copy") { 
 	$extension = strrchr($filename, ".");
@@ -314,19 +279,12 @@ if ($page == "copy") {
 	<h2>Copy &ldquo;<a href="/<?php echo $filename; ?> "> <?php echo $filename; ?> </a> &rdquo;</h2>
 	<p>Existing files with the same filename are automatically overwritten... Be careful!</p>
 	<form method="post" id="new" action="<?php echo $config['address'].$varvar; ?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<label>Old filename:</label>
-			<input type="hidden" name="old_filename" value="<?php echo $filename; ?>" />
-			<input type="text" name="dummy" value="<?php echo $filename; ?>" class="textinput" disabled="disabled" />
-		</p>
-		<p>
-			<label for="copy_filename">New filename:</label>
-			<input type="text" name="copy_filename" id="copy_filename" class="textinput" value="<?php echo $slug."_".date("mdyHi").$extension; ?>" />
-		</p>
-		<p>	<?php Cancel_Submit_Buttons("Copy"); ?>	</p>
+		<input type="hidden" name="old_filename" value="<?php echo $filename; ?>" />
+		<p><label>Old filename:</label><input type="text" name="dummy" value="<?php echo $filename; ?>" class="textinput" disabled="disabled" /></p>
+		<p><label for="copy_filename">New filename:</label><input type="text" name="copy_filename" id="copy_filename" class="textinput" value="<?php echo $slug."_".date("mdyHi").$extension; ?>" />	</p>
+		<?php Cancel_Submit_Buttons("Copy"); ?>
 	</form>
-<?php };
+<?php }
 
 
 
@@ -336,31 +294,21 @@ if ($page == "delete") {
 	<h2>Delete &ldquo;<a href="/<?php echo $filename; ?> " >
 	<?php echo $filename; ?></a>&rdquo;</h2>
 	<p>Are you sure?</p>
-
 	<form method="post" action="<?php echo $config['address'].$varvar; ?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<input type="hidden" name="delete_filename" value="<?php echo $filename; ?>" />
-			<?php Cancel_Submit_Buttons("DELETE"); ?>
-
-		</p>
+		<input type="hidden" name="delete_filename" value="<?php echo $filename; ?>" />
+		<?php Cancel_Submit_Buttons("DELETE"); ?>
 	</form>
-<?php };
+<?php }
 
 
 
 // DELETE FOLDER ***************************************************************
-if ($page == "deletefolder") {
-	$varvar = "?i=".substr($params['path'],0,strrpos(substr_replace($params['path'],"",-1),"/")); ?>
+if ($page == "deletefolder") { ?>
 	<h2>Delete Folder &ldquo;<?php echo $params['path']; ?>&rdquo;</h2>
 	<p>Folders have to be empty before they can be deleted.</p>
-	<form method="post" action="<?php echo $config['address'].$varvar; ?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<input type="hidden" name="delete_foldername" value="<?php echo $params['path']; ?>" />
-			<?php Cancel_Submit_Buttons("DELETE"); ?>
-
-		</p>
+	<form method="post" action="<?php echo $config['address']."?i=".substr($params['path'],0,strrpos(substr_replace($params['path'],"",-1),"/")); ?>">
+		<input type="hidden" name="delete_foldername" value="<?php echo $params['path']; ?>" />
+		<?php Cancel_Submit_Buttons("DELETE"); ?>
 	</form>
 <?php }
 
@@ -465,82 +413,54 @@ if ($page == "index") {
 	<p class="front_links">
 		<a href="<?php echo $config['address'].'?p=upload&amp;i='.$varvar; ?>" class="upload">Upload File</a>
 		<a href="<?php echo $config['address'].'?p=new&amp;i='.$varvar; ?>" class="new">New File</a>
-		<a href="<?php echo $config['address'].'?p=folder&amp;i='.$varvar; ?>" class="newfolder">
-		New Folder</a>
+		<a href="<?php echo $config['address'].'?p=folder&amp;i='.$varvar; ?>" class="newfolder">New Folder</a>
 		<?php if ($varvar !== "") { ?>
-			<a href="<?php echo $config['address'].'?p=deletefolder&amp;i='.$varvar; ?>" class="deletefolder">
-			Delete Folder</a>
-			<a href="<?php echo $config['address'].'?p=renamefolder&amp;i='.$varvar; ?>" class="renamefolder">
-			Rename Folder</a>
+			<a href="<?php echo $config['address'].'?p=deletefolder&amp;i='.$varvar; ?>" class="deletefolder">Delete Folder</a>
+			<a href="<?php echo $config['address'].'?p=renamefolder&amp;i='.$varvar; ?>" class="renamefolder">Rename Folder</a>
 		<?php } ?>
 		<a href="<?php echo $config['address']; ?>?p=other" class="other">Other</a>
 	</p>
-<?php };
-
+<?php }
 
 
 // LOG IN **********************************************************************
 if ($page == "login") { ?>
 	<h2>Log In</h2>
 	<form method="post" action="<?php echo $config['address']; ?>">
-		<p>
-			<label for="onefilecms_username">Username:</label>
-			<input type="text" name="onefilecms_username" id="onefilecms_username" class="login_input" />
-		</p>
-		<p>
-			<label for="onefilecms_password">Password:</label>
-			<input type="password" name="onefilecms_password" id="onefilecms_password" class="login_input" />
-		</p>
-			
+		<p><label for="onefilecms_username">Username:</label><input type="text" name="onefilecms_username" id="onefilecms_username" class="login_input" /></p>
+		<p><label for="onefilecms_password">Password:</label><input type="password" name="onefilecms_password" id="onefilecms_password" class="login_input" /></p>
 		<input class="button" type="submit" name="login" value="Login" />
 	</form>
-<?php };
-
+<?php }
 
 
 // LOG OUT *********************************************************************
 if ($page == "logout") { ?>
 	<h2>Log Out</h2>
 	<p>You have successfully been logged out and may close this window.</p>
-<?php };
-
+<?php }
 
 
 // NEW FILE ********************************************************************
-if ($page == "new") {
-	$varvar = "";
-	if (!empty($params['path'])) { $varvar = "?i=".$params['path']; }?>
+if ($page == "new") {?>
 		<h2>New File</h2>
 		<p>Existing files with the same name will not be overwritten.</p>
-		<form method="post" id="new" action="<?php echo
-		$config['address'].substr_replace($varvar,"",-1); ?>">
-			<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-			<p>
-				<label for="new_filename">New filename: </label>
-				<input type="text" name="new_filename" id="new_filename" class="textinput" value="<?php echo $params['path']; ?>" />
-			</p>
-			<p>	<?php Cancel_Submit_Buttons("Create"); ?> </p>
+		<form method="post" id="new" action="<?php echo $config['address'].(!empty($params['path'])?"?i=".substr_replace($params['path'],"",-1):''); ?>">
+			<p><label for="new_filename">New filename: </label><input type="text" name="new_filename" id="new_filename" class="textinput" value="<?php echo $params['path']; ?>" /></p>
+			<?php Cancel_Submit_Buttons("Create"); ?>
 		</form>
-<?php };
-
+<?php }
 
 
 // NEW FOLDER ******************************************************************
-if ($page == "folder") {
-	$varvar = "";
-	if (!empty($params['path'])) { $varvar = "?i=".$params['path']; }?>
+if ($page == "folder") {?>
 	<h2>New Folder</h2>
 	<p>Existing folders with the same name will not be overwritten.</p>
-	<form method="post" action="<?php echo $config['address'].substr_replace($varvar,"",-1); ?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<label for="new_folder">Folder name: </label>
-			<input type="text" name="new_folder" id="new_folder" class="textinput" value="<?php echo $params['path']; ?>" />
-		</p>
-		<p>	<?php Cancel_Submit_Buttons("Create"); ?> </p>
+	<form method="post" action="<?php echo $config['address'].(!empty($params['path'])?"?i=".substr_replace($params['path'],"",-1):''); ?>">
+		<p><label for="new_folder">Folder name: </label><input type="text" name="new_folder" id="new_folder" class="textinput" value="<?php echo $params['path']; ?>" /></p>
+		<?php Cancel_Submit_Buttons("Create"); ?>
 	</form>
-<?php };
-
+<?php }
 
 
 // OTHER ***********************************************************************
@@ -559,34 +479,22 @@ if ($page == "other") { ?>
 	<h3>Admin Link</h3>
 	<p>Add this to your footer (or something) for lazy/forgetful admins. They'll still have to know the username and password, of course.</p>
 	<pre><code>[&#60;a href="<?php echo $config['address']; ?>"&#62;Admin&#60;/a&#62;]</code></pre>
-<?php };
-
+<?php }
 
 
 // RENAME FILE *****************************************************************
 if ($page == "rename") {
 	$varvar = "?i=".substr($_GET["r"],0,strrpos($_GET["r"],"/")); ?>
-	<h2>Rename &ldquo;<a href="/<?php echo $filename; ?>"><?php echo $filename; 
-	?></a>&rdquo;</h2>
-	<p>Existing files with the same filename are automatically overwritten... Be 
-	careful!</p>
-	<p>To move a file, preface its name with the folder's name, as in 
-	"<i>foldername/filename.txt</i>." The folder must already exist.</p>
-	<form method="post" action="<?php echo $ONESCRIPT.$varvar;	?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<label>Old filename:</label>
-			<input type="hidden" name="old_filename" value="<?php echo $filename; ?>" />
-			<input type="text" name="dummy" value="<?php echo $filename; ?>" class="textinput" disabled="disabled" />
-		</p>
-		<p>
-			<label for="rename_filename">New filename:</label>
-			<input type="text" name="rename_filename" id="rename_filename" class="textinput" value="<?php echo $filename; ?>" />
-		</p>
-		<p><?php Cancel_Submit_Buttons("Rename"); ?></p>
+	<h2>Rename &ldquo;<a href="/<?php echo $filename; ?>"><?php echo $filename; ?></a>&rdquo;</h2>
+	<p>Existing files with the same filename are automatically overwritten... Be careful!</p>
+	<p>To move a file, preface its name with the folder's name, as in "<i>foldername/filename.txt</i>." The folder must already exist.</p>
+	<form method="post" action="<?php echo $config['address'].$varvar;?>">
+		<input type="hidden" name="old_filename" value="<?php echo $filename; ?>" />
+		<p><label>Old filename:</label><input type="text" name="dummy" value="<?php echo $filename; ?>" class="textinput" disabled="disabled" /></p>
+		<p><label for="rename_filename">New filename:</label><input type="text" name="rename_filename" id="rename_filename" class="textinput" value="<?php echo $filename; ?>" /></p>
+		<?php Cancel_Submit_Buttons("Rename"); ?>
 	</form>
-<?php };
-
+<?php }
 
 
 // RENAME FOLDER ***************************************************************
@@ -594,48 +502,56 @@ if ($page == "renamefolder") {
 	$varvar = "?i=".substr($params['path'],0,strrpos(substr_replace($params['path'],"",-1),"/")); ?>
 	<h2>Rename Folder &ldquo;<?php echo $params['path']; ?>&rdquo;</h2>
 	<form method="post" action="<?php echo $config['address'].$varvar; ?>">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
-		<p>
-			<label>Old name:</label><input type="hidden" name="old_foldername" value="<?php echo $params['path']; ?>" />
-			<input type="text" name="dummy" value="<?php echo $params['path']; ?>" class="textinput" disabled="disabled" />
-		</p>
-		<p>
-			<label for="rename_foldername">New name:</label>
-			<input type="text" name="rename_foldername" id="rename_foldername" class="textinput" value="<?php echo $params['path']; ?>" />
-		</p>
-		<p><?php Cancel_Submit_Buttons("Rename"); ?></p>
+		<input type="hidden" name="old_foldername" value="<?php echo $params['path']; ?>" />
+		<p><label>Old name:</label><input type="text" name="dummy" value="<?php echo $params['path']; ?>" class="textinput" disabled="disabled" /></p>
+		<p><label for="rename_foldername">New name:</label><input type="text" name="rename_foldername" id="rename_foldername" class="textinput" value="<?php echo $params['path']; ?>" /></p>
+		<?php Cancel_Submit_Buttons("Rename"); ?>
 	</form>
-<?php };
-
+<?php }
 
 
 // UPLOAD FILE *****************************************************************
-if ($page == "upload") {
-	$varvar = ""; if (!empty($params['path'])) { $varvar = "?i=".$params['path']; } ?>
+if ($page == "upload") { ?>
 	<h2>Upload</h2>
-	<form enctype="multipart/form-data" action="<?php echo
-	$config['address'].substr_replace($varvar,"",-1); ?>" method="post">
-		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
+	<form enctype="multipart/form-data" action="<?php echo $config['address'].(!empty($params['path'])?"?i=".substr_replace($params['path'],"",-1):''); ?>" method="post">
 		<input type="hidden" name="MAX_FILE_SIZE" value="100000" />
-		<p>
-			<label for="upload_destination">Destination:</label>
-			<input type="text" name="upload_destination" value="<?php echo $params['path']; ?>" class="textinput" />
-		</p>
-		<p>
-			<label for="upload_filename">File:</label>
-			<input name="upload_filename" type="file" size="93"/>
-		</p>
-		<p><?php Cancel_Submit_Buttons("Upload"); ?></p>
+		<p><label for="upload_destination">Destination:</label><input type="text" name="upload_destination" value="<?php echo $params['path']; ?>" class="textinput" /></p>
+		<p><label for="upload_filename">File:</label><input name="upload_filename" type="file" size="93"/></p>
+		<?php Cancel_Submit_Buttons("Upload"); ?>
 	</form>
 <?php } ?>
 
-
-
-<div class="footer"> <hr>
-(Icons courtesy of <a href="http://www.famfamfam.com/lab/icons/silk/" target="_BLANK">FAMFAMFAM</a>)
-</div>
+	<div class="footer"> <hr/>(Icons courtesy of <a href="http://www.famfamfam.com/lab/icons/silk/" target="_BLANK">FAMFAMFAM</a>)</div>
 
 </div>
-
 </body>
 </html>
+<?php
+
+/*************************
+ * FUNCTIONS
+ ************************/
+ // [Cancel] returns to either the current/path, or current/path/file
+function Cancel_Submit_Buttons($button_label) { 
+	global $varvar,$config;
+
+	if (isset($params['path'])) $ipath = '?i='.rtrim($params['path'],"/");
+	elseif (isset($_GET["c"])) $ipath = '?f='.$_GET["c"];
+	elseif (isset($_GET["d"])) $ipath = '?f='.$_GET["d"];
+	elseif (isset($_GET["r"])) $ipath = '?f='.$_GET["r"];
+	else $ipath = rtrim($varvar,"/");
+	echo '<input type="hidden" name="sessionid" value="'.session_id().'" />
+	<p><input type="button" class="button" name="cancel" value="Cancel" onclick="parent.location=\''.$config['address'].$ipath.'\'" />
+	<input type="submit" class="button" value="'.$button_label.'" id="action" style="margin-left: 2.5em;"></p>';
+
+}
+
+// check credentials, returns false if not okay
+function check_credentials($hash, $sessionId=null){
+	global $config;
+	if(!is_null($sessionId) && $sessionId != session_id()) return false;
+	foreach ($config['users'] as $user){
+		if (md5($user[0].$user[1]) == $hash) return true;
+	}
+	return false;
+}
