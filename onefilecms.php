@@ -6,28 +6,31 @@
 
 if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please contact your host to upgrade your PHP installation."); };
 
-// CONFIGURATION INFO
-	$config['version']	= "1.1.7"; // ONEFILECMS_BEGIN
-	$config['address']	= $_SERVER["SCRIPT_NAME"];
+///////////////////
+// CONFIGURATION //
+///////////////////
+
+	$config['version'] = "1.1.7"; // ONEFILECMS_BEGIN
+	$config['address'] = $_SERVER["SCRIPT_NAME"];
+
 // Array of users. Format: array("username","md5_password")
-	$config['users']	= array(
+	$config['users'] = array(
 								array("username",md5("password")),
 								array("admin",md5("password"))
 								);
 
-	$config['title']	= "OneFileCMS";
-	$config['footer']	= date("Y")." <a href='http://onefilecms.com/'>OneFileCMS</a>.";
-	$config['disabled']	= array("bmp","ico","gif","jpg","png","psd","zip","exe","swf"); // file types you can't edit
-	$config['excluded']	= array(); // files to exclude from directory listings (ie. array("passwords.txt","imageOFme.jpg");)
-	$config['cssfile']	= "onefilecms.css"; // the css file name
+	$config['title'] = "OneFileCMS";
+	$config['disabled'] = array("bmp","ico","gif","jpg","png","psd","zip","exe","swf"); // file types you can't edit
+	$config['excluded'] = array(); // files to exclude from directory listings (ie. array("passwords.txt","imageOFme.jpg");)
+	$config['cssfile'] = "onefilecms.css"; // the css file name
 
 
-//Allows OneFileCMS.php to be started from any dir on the site.
+//Allows OneFileCMS to be started from any dir on the site.
 	chdir($_SERVER["DOCUMENT_ROOT"]);
 
 
 ///////////////////////////////////////////////////////////////////////
-////// DO NOT EDIT BEYOND THIS IF YOU DONT KNOW WHAT YOU'RE DOING /////
+////// DO NOT EDIT BEYOND THIS IF YOU DONT KNOW WHAT YOU'RE DOING
 ///////////////////////////////////////////////////////////////////////
 
 // Here we go...
@@ -59,7 +62,7 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 		if(isset($_POST["onefilecms_username"],$_POST["onefilecms_password"]) && check_credentials(md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"])))) {
 			$_SESSION['onefilecms_hash'] = md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"]));
 		} else {
-			$message = 'Invalid username or password';
+			$message = inote("Invalid username or password",1);
 		}
 	}
 
@@ -75,11 +78,11 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 	if ($params['mode']) {
 		// redirect on invalid page attempts
 		$page = $params['mode'];
-		if (!in_array(strtolower($params['mode']), array("copy","delete","error","deletefolder","edit","folder","index","login","logout","new","other","rename","renamefolder","upload"))){
+		if (!in_array(strtolower($params['mode']), array("copy","delete","error","deletefolder","edit","folder","index","login","logout","new","about","rename","renamefolder","upload"))){
 			header("Location: ".$config['address']);
 		}
 		
-		if ($params['mode'] == "other") $pagetitle = "Other";
+		if ($params['mode'] == "About") $pagetitle = "About";
 		if ($params['mode'] == "logout") {
 			$pagetitle = "Log Out";
 			$_SESSION['onefilecms_hash'] = '';
@@ -92,14 +95,15 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 
 // COPY FILE *******************************************************************
 if (isset($_GET["c"])) {
-	$filename = $_GET["c"]; $pagetitle = "Copy &ldquo;".$filename."&rdquo;";  $page = "copy";
+	$filename = $_GET["c"];
+	$pagetitle = "Copy &ldquo;".$filename."&rdquo;";
+	$page = "copy";
 }
-
 if (isset($_POST["copy_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$old_filename = $_POST["old_filename"];
 	$filename = $_POST["copy_filename"];
 	copy($old_filename, $filename);
-	$message = '<b>'.$old_filename."</b> copied successfully to <b>".$filename."</b>.";
+	$message = inote("<b>{$old_filename}</b> copied successfully to <b>{$filename}</b>",2);
 }
 
 
@@ -113,7 +117,7 @@ if (isset($_GET["d"])) {
 if (isset($_POST["delete_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_POST["delete_filename"];
 	unlink($filename);
-	$message = '<b>'.$filename."</b> successfully deleted.";
+	$message = inote("<b>{$filename}</b> successfully deleted.",2);
 }
 
 
@@ -124,11 +128,8 @@ if ($params['mode'] == "deletefolder") {
 }
 if (isset($_POST["delete_foldername"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$foldername = $_POST["delete_foldername"];
-	if (@rmdir($foldername)) {
-		$message = '<b>'.$foldername."</b> successfully deleted.";
-	} else {
-		$message = "That folder is not empty.";
-	}
+	if (@rmdir($foldername))	$message = inote("<b>{$foldername}</b> successfully deleted.",2);
+	else $message = inote("That folder is not empty.",1);
 }
 
 
@@ -144,7 +145,7 @@ if (isset($_POST["filename"]) && check_credentials($_SESSION['onefilecms_hash'],
 		fwrite($fp, $content);
 		fclose($fp);
 	}
-	$message = '<b>'.$filename."</b> saved successfully.";
+	$message = inote("<b>{$filename}</b> saved successfully.",2);
 }
 if (isset($_GET["f"])) {
 	$filename = stripslashes($_GET["f"]);
@@ -165,7 +166,7 @@ if (isset($_GET["f"])) {
 		} else {
 			$page = "error";
 			unset ($filename);
-			$message = "File does not exist.";
+			$message = inote("File does not exist.",1);
 		}
 	}
 }
@@ -177,11 +178,11 @@ if ($params['mode'] == "new") {$pagetitle = "New File"; }
 if (isset($_POST["new_filename"]) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_POST["new_filename"];
 	if (file_exists($filename)) {
-		$message = '<b>'.$filename."</b> not created. A file with that name already exists.";
+		$message = inote("<b>{$filename}</b> not created. A file with that name already exists.",1);
 	} else {
 		$handle = fopen($filename, 'w') or die("can't open file");
 		fclose($handle);
-		$message = '<b>'.$filename."</b> created successfully.";
+		$message = inote("<b>{$filename}</b> created successfully.",2);
 	}
 }
 
@@ -193,9 +194,9 @@ if (isset($_POST["new_folder"]) && check_credentials($_SESSION['onefilecms_hash'
 	$foldername = $_POST["new_folder"];
 	if (!is_dir($foldername)) {
 		mkdir($foldername);
-		$message = '<b>'.$foldername."</b> created successfully.";
+		$message = inote("<b>{$foldername}</b> created successfully.",2);
 	} else {
-		$message = "A folder by that name already exists.";
+		$message = inote("A folder by that name already exists.",1);
 	}
 }
 
@@ -211,7 +212,7 @@ if (isset($_POST["rename_filename"]) && check_credentials($_SESSION['onefilecms_
 	$old_filename = $_POST["old_filename"];
 	$filename = $_POST["rename_filename"];
 	rename($old_filename, $filename);
-	$message = '<b>'.$old_filename."</b> successfully renamed to <b>".$filename."</b>.";
+	$message = inote("<b>{$old_filename}</b> successfully renamed to <b>{$filename}</b>.",2);
 }
 
 
@@ -222,9 +223,9 @@ if (isset($_POST["rename_foldername"]) && check_credentials($_SESSION['onefilecm
 	$old_foldername = $_POST["old_foldername"];
 	$foldername = $_POST["rename_foldername"];
 	if (rename($old_foldername, $foldername)) {
-		$message = '<b>'.$old_foldername."</b> unsuccessfully renamed to <b>".$foldername."</b>.";
+		$message = inote("<b>{$old_foldername}</b> successfully renamed to <b>{$foldername}</b>.",1);
 	} else {
-		$message = "There was an error. Try again and/or contact your admin.";
+		$message = inote("There was an error. Try again and/or contact your admin.",1);
 	}
 }
 
@@ -235,17 +236,16 @@ if ($params['mode'] == "upload") {$pagetitle = "Upload File"; }
 if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_FILES['upload_filename']['name'];
 	$destination = $_POST["upload_destination"];
-	if(move_uploaded_file($_FILES['upload_filename']['tmp_name'],
-	$destination.basename($filename))) {
-		$message = '<b>'.basename($filename)."</b> uploaded successfully to <b>".$destination."</b>.";
-	} else{
-		$message = "There was an error. Try again and/or contact your admin.";
-	}
+	if(move_uploaded_file($_FILES['upload_filename']['tmp_name'],$destination.basename($filename))) $message = inote("<b>".basename($filename)."</b> uploaded successfully to <b>{$destination}</b>.",2);
+	else $message = inote("There was an error. Try again and/or contact your admin.",1);
 }
 
 
 
-//******************************************************************************
+///////////////////
+// MAKE PAGE
+///////////////////
+
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -262,12 +262,13 @@ if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['on
 			<?php if (check_credentials($_SESSION['onefilecms_hash'])): ?>
 				<div class="nav">
 					<a href="/">Visit Site</a> | 
-					<a href="<?php echo $config['address']; ?>">Index</a> | 
+					<a href="<?php echo $config['address']; ?>">Index</a> |
+					<a href="<?php echo $config['address']; ?>?p=about">About</a> | 	
 					<a href="<?php echo $config['address']; ?>?p=logout">Log Out</a>
 				</div>
 			<?php endif; ?>
 		</div>
-		<?php echo (isset($message)?'<div id="message"><p>'.$message.'</p></div>':'');?>
+		<?php echo (isset($message)?$message:'');?>
 <?php
 
 
@@ -275,7 +276,8 @@ if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['on
 if ($page == "copy") { 
 	$extension = strrchr($filename, ".");
 	$slug = substr($filename, 0, strlen($filename) - strlen($extension));
-	$varvar = "?i=".substr($_GET["c"],0,strrpos($_GET["c"],"/")); ?>
+	$varvar = "?i=".substr($_GET["c"],0,strrpos($_GET["c"],"/"));
+	?>
 	<h2>Copy &ldquo;<a href="/<?php echo $filename; ?> "> <?php echo $filename; ?> </a> &rdquo;</h2>
 	<p>Existing files with the same filename are automatically overwritten... Be careful!</p>
 	<form method="post" id="new" action="<?php echo $config['address'].$varvar; ?>">
@@ -313,13 +315,10 @@ if ($page == "deletefolder") { ?>
 <?php }
 
 
-/*************************
- * EDIT FILE PAGE 
- ************************/
+// EDIT FILE PAGE 
  if($page == "edit"){
 ?>
-	<h2 id="edit_header">Edit &ldquo;
-	<a href="/<?php echo $filename; ?>" ><?php echo $filename; ?></a>&rdquo;</h2>
+	<h2 id="edit_header">Edit &ldquo;<a href="/<?php echo $filename; ?>" ><?php echo $filename; ?></a>&rdquo;</h2>
 	<form method="post" action="<?php echo $config['address'].'?f='.$filename; ?>">
 		<input type="button" class="button close" name="close" value="Close" onclick="parent.location='<?php echo $config['address'].'?i='.substr($_GET["f"],0,strrpos($_GET["f"],"/")); ?>'" />
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
@@ -336,11 +335,10 @@ if ($page == "deletefolder") { ?>
 			<p><i>File Size:</i> <?php echo round(filesize($filename)/1000,2); ?> kb - <i>Last Updated:</i> <?php echo date("n/j/y g:ia", filemtime($filename)); ?></p>
 		</div>
 	</form>
+
 	<div style="clear:both;"></div>
 <?php
 }
-
-
 
 
 // INDEX ***********************************************************************
@@ -418,7 +416,6 @@ if ($page == "index") {
 			<a href="<?php echo $config['address'].'?p=deletefolder&amp;i='.$varvar; ?>" class="deletefolder">Delete Folder</a>
 			<a href="<?php echo $config['address'].'?p=renamefolder&amp;i='.$varvar; ?>" class="renamefolder">Rename Folder</a>
 		<?php } ?>
-		<a href="<?php echo $config['address']; ?>?p=other" class="other">Other</a>
 	</p>
 <?php }
 
@@ -464,13 +461,13 @@ if ($page == "folder") {?>
 
 
 // OTHER ***********************************************************************
-if ($page == "other") { ?>
+if ($page == "about") { ?>
 	<h2>Other</h2>
 
 	<h3>Check for Updates</h3>
 	<p>You are using version <?php echo $config['version']; ?>.<br>
 	Future versions of OneFileCMS may have a one-click upgrade process.
-	For now, though,<a href="https://github.com/Self-Evident/OneFileCMS">&gt;check here&lt;</a> for current versions.</p>
+	For now, though,<a href="https://github.com/codefuture/OneFileCMS">check here</a> for current versions.</p>
 
 	<h3>Want some good Karma?</h3>
 	<p>Let people know you use OneFileCMS by putting this in your footer:</p>
@@ -479,6 +476,10 @@ if ($page == "other") { ?>
 	<h3>Admin Link</h3>
 	<p>Add this to your footer (or something) for lazy/forgetful admins. They'll still have to know the username and password, of course.</p>
 	<pre><code>[&#60;a href="<?php echo $config['address']; ?>"&#62;Admin&#60;/a&#62;]</code></pre>
+
+	<h3>Thanks</h3>
+	<p><a href="http://www.famfamfam.com/lab/icons/silk/" target="_BLANK">FAMFAMFAM</a> for Icons.</p>
+	
 <?php }
 
 
@@ -521,8 +522,9 @@ if ($page == "upload") { ?>
 	</form>
 <?php } ?>
 
-	<div class="footer"> <hr/>(Icons courtesy of <a href="http://www.famfamfam.com/lab/icons/silk/" target="_BLANK">FAMFAMFAM</a>)</div>
-
+</div>
+<div class="footer">
+	Powered by <a href="https://github.com/codefuture/OneFileCMS" alt="OneFileCMS" target="_blank">OneFileCMS</a><span class="right">version <?php echo $config['version'];?></span>
 </div>
 </body>
 </html>
@@ -531,6 +533,7 @@ if ($page == "upload") { ?>
 /*************************
  * FUNCTIONS
  ************************/
+ 
  // [Cancel] returns to either the current/path, or current/path/file
 function Cancel_Submit_Buttons($button_label) { 
 	global $varvar,$config;
@@ -555,3 +558,26 @@ function check_credentials($hash, $sessionId=null){
 	}
 	return false;
 }
+
+// inote( note, type, return)
+function inote($mynotes,$type='info',$return = true) {
+	if(empty($mynotes)) return;
+	if(!is_array($mynotes)) $notes[] = $mynotes;
+	else $notes = $mynotes;
+	switch($type){
+		case 1:
+			$type = 'err';
+			break;
+		case 2:
+			$type = 'suc';
+			break;
+		default:
+			$type = 'info';
+	}
+	foreach ($notes as $k=>$note){
+		$notes_html = '<div id="'.$k.'_'.$type.'" class="notification '.($type=='err'?'error':($type=='suc'?'success':'information')).'"></a>'.$note.'</div>';
+	}
+	if($return) return $notes_html ;
+	echo $notes_html ;
+}
+
