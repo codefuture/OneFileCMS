@@ -7,11 +7,8 @@
 if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please contact your host to upgrade your PHP installation."); };
 
 ///////////////////
-// CONFIGURATION //
+// CONFIGURATION
 ///////////////////
-
-	$config['version'] = "1.1.7"; // ONEFILECMS_BEGIN
-	$config['address'] = $_SERVER["SCRIPT_NAME"];
 
 // Array of users. Format: array("username","md5_password")
 	$config['users'] = array(
@@ -21,20 +18,60 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 
 	$config['title'] = "OneFileCMS";
 	$config['disabled'] = array("bmp","ico","gif","jpg","png","psd","zip","exe","swf"); // file types you can't edit
-	$config['excluded'] = array(); // files to exclude from directory listings (ie. array("passwords.txt","imageOFme.jpg");)
-	$config['cssfile'] = "onefilecms.css"; // the css file name
+	$config['excluded'] = array("onefilecms.php","onefilecms.css"); // files to exclude from directory listings (ie. array("passwords.txt","imageOFme.jpg");)
 
-
-//Allows OneFileCMS to be started from any dir on the site.
-	chdir($_SERVER["DOCUMENT_ROOT"]);
 
 
 ///////////////////////////////////////////////////////////////////////
 ////// DO NOT EDIT BEYOND THIS IF YOU DONT KNOW WHAT YOU'RE DOING
 ///////////////////////////////////////////////////////////////////////
 
+	$config['version'] = "1.1.7"; // ONEFILECMS_BEGIN
+	$config['address'] = $_SERVER["SCRIPT_NAME"];
+
+//Allows OneFileCMS to be started from any dir on the site.
+	chdir($_SERVER["DOCUMENT_ROOT"]);
+
 // Here we go...
 	session_start();
+
+///////////////////////////////////////////////////////////////////////
+////// LOGIN/LOGOUT
+///////////////////////////////////////////////////////////////////////
+
+// check for login post
+	if (isset($_POST["login"])){
+	// check posted password and username
+		if(isset($_POST["u"],$_POST["p"]) && check_credentials(md5($_POST["u"].md5($_POST["p"])))) {
+			$_SESSION['onefilecms_hash'] = md5($_POST["u"].md5($_POST["p"]));
+		} else {
+			$message = inote("Invalid username or password",1);
+		}
+	}
+// check for logout
+	elseif (isset($_GET["logout"])) {
+		$pagetitle = "Log Out";
+		$_SESSION['onefilecms_hash'] = '';
+		session_destroy();
+		$message = inote("You have successfully been logged out and may close this window",2);
+	}
+
+// check if we are loged in, if not show login page
+	if (!isset($_SESSION['onefilecms_hash']) || !check_credentials($_SESSION['onefilecms_hash'])){
+		$_SESSION['onefilecms_hash'] = '';
+		inc_header('login','login');
+		echo (isset($message)?$message:'');
+		?>
+		<h2>Log In</h2>
+		<form method="POST">
+			<p><label for="u">Username:</label><input type="text" name="u" id="u" class="login_input" /></p>
+			<p><label for="p">Password:</label><input type="password" name="p" id="p" class="login_input" /></p>
+			<input class="button" type="submit" name="login" value="Login" />
+		</form>
+		<?
+		inc_footer();
+		exit;
+	}
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -56,38 +93,18 @@ if( phpversion() < '5.0.0' ) { exit("OneFileCMS requires PHP5 to operate. Please
 	$params['mode'] = isset($_GET['p'])?$_GET['p']:false;
 	$params['path'] = isset($_GET['i'])?$_GET['i']:'';
 
-// check for login post
-	if (isset($_POST["login"])){
-	// check posted password and username
-		if(isset($_POST["onefilecms_username"],$_POST["onefilecms_password"]) && check_credentials(md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"])))) {
-			$_SESSION['onefilecms_hash'] = md5($_POST["onefilecms_username"].md5($_POST["onefilecms_password"]));
-		} else {
-			$message = inote("Invalid username or password",1);
-		}
-	}
 
-// check if we are loged in, if not set page to login
-	if(!isset($_SESSION['onefilecms_hash']) || !check_credentials($_SESSION['onefilecms_hash'])){
-		$_SESSION['onefilecms_hash'] = '';
-		$page = "login";
-		$pagetitle = "Log In";
-	}
 
 	if (!empty($params['path'])) $pagetitle = "/".$params['path']."/";
 
 	if ($params['mode']) {
 		// redirect on invalid page attempts
 		$page = $params['mode'];
-		if (!in_array(strtolower($params['mode']), array("copy","delete","error","deletefolder","edit","folder","index","login","logout","new","about","rename","renamefolder","upload"))){
+		if (!in_array(strtolower($params['mode']), array("copy","delete","error","deletefolder","edit","folder","index","new","about","rename","renamefolder","upload"))){
 			header("Location: ".$config['address']);
 		}
 		
 		if ($params['mode'] == "About") $pagetitle = "About";
-		if ($params['mode'] == "logout") {
-			$pagetitle = "Log Out";
-			$_SESSION['onefilecms_hash'] = '';
-			session_destroy();
-		}
 	}
 
 
@@ -232,7 +249,7 @@ if (isset($_POST["rename_foldername"]) && check_credentials($_SESSION['onefilecm
 
 
 // UPLOAD FILE *****************************************************************
-if ($params['mode'] == "upload") {$pagetitle = "Upload File"; }
+if ($params['mode'] == "upload") $pagetitle = "Upload File";
 if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['onefilecms_hash'],$_POST["sessionid"])) {
 	$filename = $_FILES['upload_filename']['name'];
 	$destination = $_POST["upload_destination"];
@@ -246,30 +263,9 @@ if (isset($_FILES['upload_filename']['name']) && check_credentials($_SESSION['on
 // MAKE PAGE
 ///////////////////
 
-?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-	<meta name="robots" content="noindex">
-	<title><?php echo $config['title'].' - '.$pagetitle; ?></title>
-	<link href="<?php echo $config['cssfile'];?>" type="text/css" rel="stylesheet" />
-</head>
-<body class="page_<?php echo $page; ?>">
-	<div class="container">
-		<div class="header">
-			<?php echo '<a href="'.$config['address'].'" id="logo" >'.$config['title']; ?></a>
-			<?php if (check_credentials($_SESSION['onefilecms_hash'])): ?>
-				<div class="nav">
-					<a href="/">Visit Site</a> | 
-					<a href="<?php echo $config['address']; ?>">Index</a> |
-					<a href="<?php echo $config['address']; ?>?p=about">About</a> | 	
-					<a href="<?php echo $config['address']; ?>?p=logout">Log Out</a>
-				</div>
-			<?php endif; ?>
-		</div>
-		<?php echo (isset($message)?$message:'');?>
-<?php
+	inc_header($pagetitle,$page);
+	echo (isset($message)?$message:'');
+
 
 
 // COPY FILE *******************************************************************
@@ -324,6 +320,10 @@ if ($page == "deletefolder") { ?>
 		<input type="hidden" name="sessionid" value="<?php echo session_id(); ?>" />
 		<input type="hidden" name="filename" id="filename" class="textinput" value="<?php echo (empty($loadcontentbutton)?$filename:''); ?>" />
 		<p><textarea name="content" class="textinput" cols="70" rows="25"><?php echo $loadcontent; ?></textarea></p>
+		<div class="meta">
+			<i>File Size:</i> <?php echo round(filesize($filename)/1000,2); ?> kb <br/>
+			<i>Last Updated:</i> <?php echo date("n/j/y g:ia", filemtime($filename)); ?>
+		</div>
 		<p class="buttons_right">
 			<input type="submit" class="button" name="save_file" id="save_file" value="Save" <?php echo $loadcontentbutton;?> />
 			<input type="button" class="button" name="rename_file" value="Rename/Move" onclick="parent.location='<?php echo $config['address'].'?r='.$filename; ?>'" />
@@ -331,9 +331,7 @@ if ($page == "deletefolder") { ?>
 			<input type="button" class="button" name="copy_file" value="Copy" onclick="parent.location='<?php echo $config['address'].'?c='.$filename; ?>'" />
 			<input type="button" class="button" name="close" value="Close" onclick="parent.location='<?php echo $config['address'].'?i='.substr($_GET["f"],0,strrpos($_GET["f"],"/")); ?>'" />
 		</p>
-		<div class="meta">
-			<p><i>File Size:</i> <?php echo round(filesize($filename)/1000,2); ?> kb - <i>Last Updated:</i> <?php echo date("n/j/y g:ia", filemtime($filename)); ?></p>
-		</div>
+
 	</form>
 
 	<div style="clear:both;"></div>
@@ -420,24 +418,6 @@ if ($page == "index") {
 <?php }
 
 
-// LOG IN **********************************************************************
-if ($page == "login") { ?>
-	<h2>Log In</h2>
-	<form method="post" action="<?php echo $config['address']; ?>">
-		<p><label for="onefilecms_username">Username:</label><input type="text" name="onefilecms_username" id="onefilecms_username" class="login_input" /></p>
-		<p><label for="onefilecms_password">Password:</label><input type="password" name="onefilecms_password" id="onefilecms_password" class="login_input" /></p>
-		<input class="button" type="submit" name="login" value="Login" />
-	</form>
-<?php }
-
-
-// LOG OUT *********************************************************************
-if ($page == "logout") { ?>
-	<h2>Log Out</h2>
-	<p>You have successfully been logged out and may close this window.</p>
-<?php }
-
-
 // NEW FILE ********************************************************************
 if ($page == "new") {?>
 		<h2>New File</h2>
@@ -520,15 +500,10 @@ if ($page == "upload") { ?>
 		<p><label for="upload_filename">File:</label><input name="upload_filename" type="file" size="93"/></p>
 		<?php Cancel_Submit_Buttons("Upload"); ?>
 	</form>
-<?php } ?>
+<?php }
 
-</div>
-<div class="footer">
-	Powered by <a href="https://github.com/codefuture/OneFileCMS" alt="OneFileCMS" target="_blank">OneFileCMS</a><span class="right">version <?php echo $config['version'];?></span>
-</div>
-</body>
-</html>
-<?php
+inc_footer();
+
 
 /*************************
  * FUNCTIONS
@@ -581,3 +556,34 @@ function inote($mynotes,$type='info',$return = true) {
 	echo $notes_html ;
 }
 
+// page template functions
+function inc_header($pagetitle,$pageClass){
+	global $config;
+
+	echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<meta name="robots" content="noindex">
+		<title>'.$config['title'].' - '.$pagetitle.'</title>
+		<link href="onefilecms.css" type="text/css" rel="stylesheet" />
+	</head>
+	<body class="page_'.$pageClass.'">
+		<div class="container">
+			<div class="header">
+				<a href="'.$config['address'].'" id="logo" >'.$config['title'].'</a>';
+	if (check_credentials($_SESSION['onefilecms_hash'])){
+		echo '<div class="nav">
+						<a href="/">Visit Site</a> | 
+						<a href="'. $config['address'].'">Index</a> | 
+						<a href="'.$config['address'].'?p=about" class="other">about</a> | 
+						<a href="'.$config['address'].'?logout">Log Out</a>
+					</div>';
+	}
+	echo '</div>';
+}
+
+function inc_footer(){
+	global $config;
+	echo '</div><div class="footer">Powered by <a href="https://github.com/codefuture/OneFileCMS" alt="Tiny Issue Tracker" target="_blank">OneFileCMS</a><span class="right">version '.$config['version'].'</span></div></body></html>';
+}

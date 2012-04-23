@@ -204,7 +204,7 @@ ul.list .meta span {
 .front_links a.upload { background: url("http://self-evident.github.com/OneFileCMS/images/silk_upload.png") 0 3px no-repeat; }
 .front_links a.other { background: url("http://self-evident.github.com/OneFileCMS/images/silk_other.png") 0 3px no-repeat; }
 .front_links a:hover { border: 1px solid #807568; background-color: #fffbce; }
-form .meta { z-index: -1; }
+form .meta {color: #666666;float: left;width: 250px;}
 
 .textinput {
 	border: 1px solid #807568;
