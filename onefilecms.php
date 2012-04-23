@@ -585,5 +585,5 @@ function inc_header($pagetitle,$pageClass){
 
 function inc_footer(){
 	global $config;
-	echo '</div><div class="footer">Powered by <a href="https://github.com/codefuture/OneFileCMS" alt="Tiny Issue Tracker" target="_blank">OneFileCMS</a><span class="right">version '.$config['version'].'</span></div></body></html>';
+	echo '</div><div class="footer">Powered by <a href="https://github.com/codefuture/OneFileCMS" alt="OneFileCMS" target="_blank">OneFileCMS</a><span class="right">version '.$config['version'].'</span></div></body></html>';
 }
